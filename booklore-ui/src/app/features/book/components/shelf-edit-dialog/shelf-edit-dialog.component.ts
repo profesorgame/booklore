@@ -110,16 +110,14 @@ export class ShelfEditDialogComponent implements OnInit {
   save() {
     const iconValue = this.selectedIcon?.value || 'bookmark';
     const iconType = this.selectedIcon?.type || 'PRIME_NG';
-    const providerId = this.autoEmailEnabled ? this.selectedProvider?.value?.id ?? null : null;
-    const recipientId = this.autoEmailEnabled ? this.selectedRecipient?.value?.id ?? null : null;
 
     const shelf: Shelf = {
       name: this.shelfName,
       icon: iconValue,
       iconType: iconType,
       autoEmailEnabled: this.autoEmailEnabled,
-      autoEmailProviderId: providerId,
-      autoEmailRecipientId: recipientId
+      autoEmailProviderId: this.selectedProvider?.value?.id,
+      autoEmailRecipientId: this.selectedRecipient?.value?.id
     };
 
     this.shelfService.updateShelf(shelf, this.shelf?.id).subscribe({

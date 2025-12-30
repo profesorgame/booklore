@@ -88,6 +88,41 @@
         </div>
       }
     </div>
+
+    <div class="gradient-divider"></div>
+
+    <div class="form-group highlight-group">
+      <label class="form-label">
+        <i class="pi pi-envelope label-icon"></i>
+        Auto Email Books
+      </label>
+      <div class="input-wrapper toggle-row">
+        <p-toggleSwitch [(ngModel)]="autoEmailEnabled" (ngModelChange)="onAutoEmailToggle($event)"></p-toggleSwitch>
+        <span class="subtle-text">Send newly added books from this shelf by email.</span>
+      </div>
+      <div class="input-wrapper">
+        <p-select
+          [options]="emailProviders"
+          optionLabel="label"
+          placeholder="Use default provider"
+          [(ngModel)]="selectedProvider"
+          [disabled]="!autoEmailEnabled"
+          appendTo="body"
+          class="input-full">
+        </p-select>
+      </div>
+      <div class="input-wrapper">
+        <p-select
+          [options]="emailRecipients"
+          optionLabel="label"
+          placeholder="Use default recipient"
+          [(ngModel)]="selectedRecipient"
+          [disabled]="!autoEmailEnabled"
+          appendTo="body"
+          class="input-full">
+        </p-select>
+      </div>
+    </div>
   </div>
 
   <div class="dialog-footer">

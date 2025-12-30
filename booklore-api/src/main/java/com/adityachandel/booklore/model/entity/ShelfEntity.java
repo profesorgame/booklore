@@ -40,6 +40,16 @@ public class ShelfEntity {
     @Builder.Default
     private IconType iconType = IconType.PRIME_NG;
 
+    @Column(name = "auto_email_enabled", nullable = false)
+    @Builder.Default
+    private boolean autoEmailEnabled = false;
+
+    @Column(name = "auto_email_provider_id")
+    private Long autoEmailProviderId;
+
+    @Column(name = "auto_email_recipient_id")
+    private Long autoEmailRecipientId;
+
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
             name = "book_shelf_mapping",

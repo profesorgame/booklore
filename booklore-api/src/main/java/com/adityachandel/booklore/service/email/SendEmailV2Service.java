@@ -7,6 +7,7 @@ import com.adityachandel.booklore.model.dto.request.SendBookByEmailRequest;
 import com.adityachandel.booklore.model.entity.BookEntity;
 import com.adityachandel.booklore.model.entity.EmailProviderV2Entity;
 import com.adityachandel.booklore.model.entity.EmailRecipientV2Entity;
+import com.adityachandel.booklore.model.entity.ShelfEntity;
 import com.adityachandel.booklore.model.entity.UserEmailProviderPreferenceEntity;
 import com.adityachandel.booklore.model.websocket.LogNotification;
 import com.adityachandel.booklore.model.websocket.Topic;
@@ -58,6 +59,13 @@ public class SendEmailV2Service {
                 );
         BookEntity book = bookRepository.findById(request.getBookId()).orElseThrow(() -> ApiError.BOOK_NOT_FOUND.createException(request.getBookId()));
         EmailRecipientV2Entity emailRecipient = emailRecipientRepository.findByIdAndUserId(request.getRecipientId(), user.getId()).orElseThrow(() -> ApiError.EMAIL_RECIPIENT_NOT_FOUND.createException(request.getRecipientId()));
+        sendEmailInVirtualThread(emailProvider, emailRecipient.getEmail(), book);
+    }
+
+    public void emailBookForShelf(BookEntity book, ShelfEntity shelf) {
+        BookLoreUser user = authenticationService.getAuthenticatedUser();
+        EmailProviderV2Entity emailProvider = resolveShelfEmailProvider(shelf, user);
+        EmailRecipientV2Entity emailRecipient = resolveShelfEmailRecipient(shelf, user);
         sendEmailInVirtualThread(emailProvider, emailRecipient.getEmail(), book);
     }
 
@@ -183,6 +191,23 @@ public class SendEmailV2Service {
 
         return emailProviderRepository.findAccessibleProvider(defaultProviderId, user.getId())
                 .orElseThrow(ApiError.DEFAULT_EMAIL_PROVIDER_NOT_FOUND::createException);
+    }
+
+    private EmailProviderV2Entity resolveShelfEmailProvider(ShelfEntity shelf, BookLoreUser user) {
+        if (shelf.getAutoEmailProviderId() != null) {
+            return emailProviderRepository.findAccessibleProvider(shelf.getAutoEmailProviderId(), user.getId())
+                    .orElseThrow(() -> ApiError.EMAIL_PROVIDER_NOT_FOUND.createException(shelf.getAutoEmailProviderId()));
+        }
+        return getDefaultEmailProvider();
+    }
+
+    private EmailRecipientV2Entity resolveShelfEmailRecipient(ShelfEntity shelf, BookLoreUser user) {
+        if (shelf.getAutoEmailRecipientId() != null) {
+            return emailRecipientRepository.findByIdAndUserId(shelf.getAutoEmailRecipientId(), user.getId())
+                    .orElseThrow(() -> ApiError.EMAIL_RECIPIENT_NOT_FOUND.createException(shelf.getAutoEmailRecipientId()));
+        }
+        return emailRecipientRepository.findDefaultEmailRecipientByUserId(user.getId())
+                .orElseThrow(ApiError.DEFAULT_EMAIL_RECIPIENT_NOT_FOUND::createException);
     }
 
     private enum ConnectionType {

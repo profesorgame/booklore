@@ -34,6 +34,9 @@ public class ShelfService {
 
     public Shelf createShelf(ShelfCreateRequest request) {
         Long userId = getAuthenticatedUserId();
+        BookLoreUser user = authenticationService.getAuthenticatedUser();
+        validateAutoEmailPermissions(user, request);
+        boolean autoEmailEnabled = request.isAutoEmailEnabled();
         if (shelfRepository.existsByUserIdAndName(userId, request.getName())) {
             throw ApiError.SHELF_ALREADY_EXISTS.createException(request.getName());
         }
@@ -41,16 +44,25 @@ public class ShelfService {
                 .icon(request.getIcon())
                 .name(request.getName())
                 .iconType(request.getIconType())
+                .autoEmailEnabled(autoEmailEnabled)
+                .autoEmailProviderId(resolveAutoEmailProviderId(request, autoEmailEnabled))
+                .autoEmailRecipientId(resolveAutoEmailRecipientId(request, autoEmailEnabled))
                 .user(fetchUserEntityById(userId))
                 .build();
         return shelfMapper.toShelf(shelfRepository.save(shelfEntity));
     }
 
     public Shelf updateShelf(Long id, ShelfCreateRequest request) {
+        BookLoreUser user = authenticationService.getAuthenticatedUser();
+        validateAutoEmailPermissions(user, request);
+        boolean autoEmailEnabled = request.isAutoEmailEnabled();
         ShelfEntity shelfEntity = findShelfByIdOrThrow(id);
         shelfEntity.setName(request.getName());
         shelfEntity.setIcon(request.getIcon());
         shelfEntity.setIconType(request.getIconType());
+        shelfEntity.setAutoEmailEnabled(autoEmailEnabled);
+        shelfEntity.setAutoEmailProviderId(resolveAutoEmailProviderId(request, autoEmailEnabled));
+        shelfEntity.setAutoEmailRecipientId(resolveAutoEmailRecipientId(request, autoEmailEnabled));
         return shelfMapper.toShelf(shelfRepository.save(shelfEntity));
     }
 
@@ -99,5 +111,29 @@ public class ShelfService {
 
     public Optional<ShelfEntity> getShelf(Long id, String name) {
         return shelfRepository.findByUserIdAndName(id, name);
+    }
+
+    private void validateAutoEmailPermissions(BookLoreUser user, ShelfCreateRequest request) {
+        boolean wantsAutoEmail = request.isAutoEmailEnabled()
+                || request.getAutoEmailProviderId() != null
+                || request.getAutoEmailRecipientId() != null;
+        if (!wantsAutoEmail) {
+            return;
+        }
+        if (user.getPermissions() == null) {
+            throw ApiError.GENERIC_UNAUTHORIZED.createException("You do not have permission to configure auto email.");
+        }
+        boolean canEmail = user.getPermissions().isAdmin() || user.getPermissions().isCanEmailBook();
+        if (!canEmail) {
+            throw ApiError.GENERIC_UNAUTHORIZED.createException("You do not have permission to configure auto email.");
+        }
+    }
+
+    private Long resolveAutoEmailProviderId(ShelfCreateRequest request, boolean autoEmailEnabled) {
+        return autoEmailEnabled ? request.getAutoEmailProviderId() : null;
+    }
+
+    private Long resolveAutoEmailRecipientId(ShelfCreateRequest request, boolean autoEmailEnabled) {
+        return autoEmailEnabled ? request.getAutoEmailRecipientId() : null;
     }
 }

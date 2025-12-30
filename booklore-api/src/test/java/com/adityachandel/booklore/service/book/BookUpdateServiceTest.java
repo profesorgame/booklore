@@ -14,6 +14,7 @@ import com.adityachandel.booklore.model.enums.BookFileType;
 import com.adityachandel.booklore.model.enums.ReadStatus;
 import com.adityachandel.booklore.model.enums.ResetProgressType;
 import com.adityachandel.booklore.repository.*;
+import com.adityachandel.booklore.service.email.SendEmailV2Service;
 import com.adityachandel.booklore.service.kobo.KoboReadingStateService;
 import com.adityachandel.booklore.service.user.UserProgressService;
 import org.junit.jupiter.api.BeforeEach;
@@ -42,6 +43,7 @@ class BookUpdateServiceTest {
     @Mock private BookQueryService bookQueryService;
     @Mock private UserProgressService userProgressService;
     @Mock private KoboReadingStateService koboReadingStateService;
+    @Mock private SendEmailV2Service sendEmailV2Service;
 
     @InjectMocks
     private BookUpdateService bookUpdateService;
@@ -62,7 +64,8 @@ class BookUpdateServiceTest {
                 authenticationService,
                 bookQueryService,
                 userProgressService,
-                koboReadingStateService
+                koboReadingStateService,
+                sendEmailV2Service
         );
     }
 
@@ -279,8 +282,11 @@ class BookUpdateServiceTest {
     @Test
     void assignShelvesToBooks_shouldAssignAndReturnBooks() {
         BookLoreUser user = mock(BookLoreUser.class);
+        BookLoreUser.UserPermissions permissions = new BookLoreUser.UserPermissions();
+        permissions.setCanEmailBook(true);
         when(authenticationService.getAuthenticatedUser()).thenReturn(user);
         when(user.getId()).thenReturn(1L);
+        when(user.getPermissions()).thenReturn(permissions);
 
         BookLoreUserEntity userEntity = new BookLoreUserEntity();
         ShelfEntity shelf1 = new ShelfEntity(); shelf1.setId(10L);
@@ -324,10 +330,52 @@ class BookUpdateServiceTest {
     }
 
     @Test
-    void assignShelvesToBooks_shouldThrowIfUnauthorized() {
+    void assignShelvesToBooks_shouldTriggerAutoEmailOnNewAssignments() {
         BookLoreUser user = mock(BookLoreUser.class);
+        BookLoreUser.UserPermissions permissions = new BookLoreUser.UserPermissions();
+        permissions.setCanEmailBook(true);
         when(authenticationService.getAuthenticatedUser()).thenReturn(user);
         when(user.getId()).thenReturn(1L);
+        when(user.getPermissions()).thenReturn(permissions);
+
+        BookLoreUserEntity userEntity = new BookLoreUserEntity();
+        ShelfEntity shelf1 = new ShelfEntity();
+        shelf1.setId(10L);
+        shelf1.setAutoEmailEnabled(true);
+        userEntity.setShelves(new HashSet<>(Collections.singletonList(shelf1)));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(userEntity));
+
+        Set<Long> bookIds = new HashSet<>(Collections.singletonList(1L));
+        Set<Long> assignIds = new HashSet<>(Collections.singletonList(10L));
+        Set<Long> unassignIds = new HashSet<>();
+
+        BookEntity bookEntity = spy(new BookEntity());
+        bookEntity.setId(1L);
+        bookEntity.setShelves(new HashSet<>());
+        LibraryPathEntity libraryPath = new LibraryPathEntity();
+        libraryPath.setPath("/mock/path/1");
+        doReturn(libraryPath).when(bookEntity).getLibraryPath();
+        bookEntity.setFileSubPath("sub1");
+        bookEntity.setFileName("file1.pdf");
+
+        when(bookQueryService.findAllWithMetadataByIds(bookIds)).thenReturn(Collections.singletonList(bookEntity));
+        when(shelfRepository.findAllById(assignIds)).thenReturn(Collections.singletonList(shelf1));
+        Book mockBook = mock(Book.class);
+        when(bookMapper.toBook(any())).thenReturn(mockBook);
+        when(userProgressService.fetchUserProgress(eq(1L), anySet())).thenReturn(Collections.emptyMap());
+
+        bookUpdateService.assignShelvesToBooks(bookIds, assignIds, unassignIds);
+
+        verify(sendEmailV2Service).emailBookForShelf(bookEntity, shelf1);
+    }
+
+    @Test
+    void assignShelvesToBooks_shouldThrowIfUnauthorized() {
+        BookLoreUser user = mock(BookLoreUser.class);
+        BookLoreUser.UserPermissions permissions = new BookLoreUser.UserPermissions();
+        when(authenticationService.getAuthenticatedUser()).thenReturn(user);
+        when(user.getId()).thenReturn(1L);
+        when(user.getPermissions()).thenReturn(permissions);
 
         BookLoreUserEntity userEntity = new BookLoreUserEntity();
         ShelfEntity shelf1 = new ShelfEntity(); shelf1.setId(10L);

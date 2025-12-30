@@ -163,6 +163,17 @@
       color: var(--p-green-500);
     }
   }
+
+  &.toggle-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+}
+
+.subtle-text {
+  font-size: 0.85rem;
+  color: var(--text-secondary-color);
 }
 
 .icon-select-btn {

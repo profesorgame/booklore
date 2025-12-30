@@ -15,4 +15,7 @@ public class Shelf {
     private IconType iconType;
     private Sort sort;
     private Long userId;
+    private boolean autoEmailEnabled;
+    private Long autoEmailProviderId;
+    private Long autoEmailRecipientId;
 }

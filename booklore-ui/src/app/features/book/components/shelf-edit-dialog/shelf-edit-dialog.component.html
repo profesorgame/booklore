@@ -47,6 +47,34 @@
           }
         </div>
       </div>
+
+      <div class="shelf-row">
+        <label class="label">Auto Email Books:</label>
+        <div class="icon-section auto-email-section">
+          <div class="auto-email-toggle">
+            <p-toggleSwitch [(ngModel)]="autoEmailEnabled" (ngModelChange)="onAutoEmailToggle($event)"></p-toggleSwitch>
+            <span class="helper-text">Send newly added books from this shelf by email.</span>
+          </div>
+          <p-select
+            [options]="emailProviders"
+            optionLabel="label"
+            placeholder="Use default provider"
+            [(ngModel)]="selectedProvider"
+            [disabled]="!autoEmailEnabled"
+            appendTo="body"
+            class="w-full">
+          </p-select>
+          <p-select
+            [options]="emailRecipients"
+            optionLabel="label"
+            placeholder="Use default recipient"
+            [(ngModel)]="selectedRecipient"
+            [disabled]="!autoEmailEnabled"
+            appendTo="body"
+            class="w-full">
+          </p-select>
+        </div>
+      </div>
     </div>
   </div>
 

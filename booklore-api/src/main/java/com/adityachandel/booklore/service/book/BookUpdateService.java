@@ -12,6 +12,7 @@ import com.adityachandel.booklore.model.enums.BookFileType;
 import com.adityachandel.booklore.model.enums.ReadStatus;
 import com.adityachandel.booklore.model.enums.ResetProgressType;
 import com.adityachandel.booklore.repository.*;
+import com.adityachandel.booklore.service.email.SendEmailV2Service;
 import com.adityachandel.booklore.service.kobo.KoboReadingStateService;
 import com.adityachandel.booklore.service.user.UserProgressService;
 import com.adityachandel.booklore.util.FileUtils;
@@ -44,6 +45,7 @@ public class BookUpdateService {
     private final BookQueryService bookQueryService;
     private final UserProgressService userProgressService;
     private final KoboReadingStateService koboReadingStateService;
+    private final SendEmailV2Service sendEmailV2Service;
 
     public void updateBookViewerSetting(long bookId, BookViewerSettings bookViewerSettings) {
         BookEntity bookEntity = bookRepository.findById(bookId).orElseThrow(() -> ApiError.BOOK_NOT_FOUND.createException(bookId));
@@ -333,6 +335,7 @@ public class BookUpdateService {
         for (BookEntity bookEntity : bookEntities) {
             bookEntity.getShelves().removeIf(shelf -> shelfIdsToUnassign.contains(shelf.getId()));
             bookEntity.getShelves().addAll(shelvesToAssign);
+            triggerAutoEmailAssignments(user, bookEntity, shelvesToAssign);
         }
         bookRepository.saveAll(bookEntities);
 
@@ -415,5 +418,26 @@ public class BookUpdateService {
                 .filter(shelf -> userId.equals(shelf.getUserId()))
                 .collect(Collectors.toSet());
     }
-}
 
+    private void triggerAutoEmailAssignments(BookLoreUser user,
+                                             BookEntity bookEntity,
+                                             List<ShelfEntity> shelvesAdded) {
+        if (!hasEmailPermission(user)) {
+            if (shelvesAdded.stream().anyMatch(ShelfEntity::isAutoEmailEnabled)) {
+                log.warn("User {} lacks email permissions; skipping auto-email shelf assignments.", user.getId());
+            }
+            return;
+        }
+        shelvesAdded.stream()
+                .filter(ShelfEntity::isAutoEmailEnabled)
+                .forEach(shelf -> sendEmailV2Service.emailBookForShelf(bookEntity, shelf));
+    }
+
+    private boolean hasEmailPermission(BookLoreUser user) {
+        if (user.getPermissions() == null) {
+            return false;
+        }
+        return user.getPermissions().isAdmin() || user.getPermissions().isCanEmailBook();
+    }
+
+}
